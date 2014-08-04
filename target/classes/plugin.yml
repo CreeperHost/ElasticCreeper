@@ -1,0 +1,4 @@
+name: BungeePlugin
+main: net.creeperhost.BungeePlugin
+version: 1.0
+author: CreeperHost
