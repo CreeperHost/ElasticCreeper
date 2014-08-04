@@ -22,11 +22,11 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="true" />
-        <module name="BungeeProvision" />
+        <module name="BungeePlugin" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="BungeeProvision" target="1.7" />
+      <module name="BungeePlugin" target="1.7" />
     </bytecodeTargetLevel>
   </component>
 </project>

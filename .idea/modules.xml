@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/BungeeProvision.iml" filepath="$PROJECT_DIR$/BungeeProvision.iml" />
+      <module fileurl="file://$PROJECT_DIR$/BungeePlugin.iml" filepath="$PROJECT_DIR$/BungeePlugin.iml" />
     </modules>
   </component>
 </project>
