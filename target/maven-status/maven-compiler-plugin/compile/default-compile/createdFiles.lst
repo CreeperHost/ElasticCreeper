@@ -1,4 +1,5 @@
 net\creeperhost\Config.class
+net\creeperhost\BungeePlugin$WatchDog.class
 net\creeperhost\BungeePlugin$2.class
 net\creeperhost\BungeePlugin.class
 net\creeperhost\BungeePlugin$AriesCallTask.class

@@ -319,7 +319,7 @@ public class BungeePlugin extends Plugin implements Listener {
                 int playerCount = info.getPlayers().size();
                 if (playerCount == 0)
                 {
-                    if (lastPlayers.get(set.getKey()) == 0)
+                    if (lastPlayers.containsKey(set.getKey()) && lastPlayers.get(set.getKey()) == 0)
                     {
                         // LETS KILL THE SERVER. MUHAHAHAHA.
                         serversToKill.add(info);
