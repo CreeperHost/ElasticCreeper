@@ -227,6 +227,19 @@ public class BungeePlugin extends Plugin implements Listener {
     }
 
     public void makeServer(String serverName, String prefix, ProxiedPlayer player) {
+
+        if (serverName.equals(prefix))
+        {
+            // lets find a random server to put them too.
+            for (String key : runningServers.keySet())
+            {
+                if (key.startsWith(serverName))
+                {
+                    serverName = key;
+                }
+            }
+        }
+
         if (!addWaitingPlayer(serverName, player)) {
             return; // already waiting D: WE NO MAKE SERVER NAOW
         }
