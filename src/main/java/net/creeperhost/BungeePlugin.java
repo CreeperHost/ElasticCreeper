@@ -138,7 +138,7 @@ public class BungeePlugin extends Plugin implements Listener {
 
         this.getProxy().getPluginManager().registerListener(this, this);
 
-        this.getProxy().getScheduler().schedule(this, (Runnable) new WatchDog(), 2, TimeUnit.MINUTES);
+        this.getProxy().getScheduler().schedule(this, (Runnable) new WatchDog(), 0, 2, TimeUnit.MINUTES);
     }
 
     @Override
