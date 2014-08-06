@@ -23,6 +23,7 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /**
@@ -136,6 +137,8 @@ public class BungeePlugin extends Plugin implements Listener {
         SSLWorkaround(); // ugh
 
         this.getProxy().getPluginManager().registerListener(this, this);
+
+        this.getProxy().getScheduler().schedule(this, (Runnable) new WatchDog(), 2, TimeUnit.MINUTES);
     }
 
     @Override
@@ -251,14 +254,13 @@ public class BungeePlugin extends Plugin implements Listener {
         public void run() {
             logger.info("Provisioning " + serverName);
             serverTasks.put(serverName, this);
-            String json = "{\"status\": \"error\"}";
             Map<String, Object> params = new LinkedHashMap<>();
             params.put("key", Config.key);
             params.put("secret", Config.secret);
             Map<String, Object> serverObj = Config.servers.get(prefix);
             JSONObject obj = new JSONObject(serverObj);
             params.put("data", obj.toString());
-            json = makeAPICall("billing", "spinupMinigame", params);
+            String json = makeAPICall("billing", "spinupMinigame", params);
 
             JSONObject newObj = new JSONObject(json);
 
@@ -299,6 +301,36 @@ public class BungeePlugin extends Plugin implements Listener {
             waitingPlayers.remove(prefix);
 
             serverTasks.remove(serverName);
+        }
+    }
+
+    private final class WatchDog implements Runnable
+    {
+
+        private HashMap<String, Integer> lastPlayers;
+
+        @Override
+        public void run() {
+
+            ArrayList<ServerInfo> serversToKill = new ArrayList();
+
+            for (Map.Entry<String, ServerInfo> set : runningServers.entrySet()) {
+                ServerInfo info = set.getValue();
+                int playerCount = info.getPlayers().size();
+                if (playerCount == 0)
+                {
+                    if (lastPlayers.get(set.getKey()) == 0)
+                    {
+                        // LETS KILL THE SERVER. MUHAHAHAHA.
+                        serversToKill.add(info);
+                    }
+                }
+            }
+
+            for (ServerInfo info : serversToKill)
+            {
+                killServer(info); // DIE SERVER DIE
+            }
         }
     }
 }
