@@ -2,21 +2,19 @@ package net.creeperhost;
 
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.ProxyServer;
+import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
-import net.md_5.bungee.api.event.ChatEvent;
 import net.md_5.bungee.api.event.PluginMessageEvent;
 import net.md_5.bungee.api.plugin.Listener;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.api.scheduler.ScheduledTask;
 import net.md_5.bungee.event.EventHandler;
-import org.json.JSONObject;
 
 import javax.net.ssl.*;
 import java.io.*;
 import java.net.HttpURLConnection;
-import java.net.InetSocketAddress;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.security.KeyManagementException;
@@ -31,10 +29,46 @@ import java.util.logging.Logger;
  */
 public class BungeePlugin extends Plugin implements Listener {
 
-    public static HashMap<String, Runnable> serverTasks = new LinkedHashMap();
-    public static HashMap<String, ArrayList<ProxiedPlayer>> waitingPlayers = new LinkedHashMap();
-    public static HashMap<String, ServerInfo> runningServers = new HashMap();
-    static Logger logger = null;
+    public static HashMap<String, ProvisionedServer> servers = new LinkedHashMap();
+    public static Random rand = new Random();
+    public static Logger logger = null;
+    public static HashMap<String, ProxiedPlayer> lockedPlayers = new LinkedHashMap();
+
+    private void SSLWorkaround() {
+        // Create a trust manager that does not validate certificate chains
+        TrustManager[] trustAllCerts = new TrustManager[]{new X509TrustManager() {
+            public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                return null;
+            }
+
+            public void checkClientTrusted(X509Certificate[] certs, String authType) {
+            }
+
+            public void checkServerTrusted(X509Certificate[] certs, String authType) {
+            }
+        }
+        };
+
+        // Install the all-trusting trust manager
+        SSLContext sc = null;
+        try {
+            sc = SSLContext.getInstance("SSL");
+            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+        } catch (NoSuchAlgorithmException e) {
+        } catch (KeyManagementException e) {
+        }
+
+        // Create all-trusting host name verifier
+        HostnameVerifier allHostsValid = new HostnameVerifier() {
+            public boolean verify(String hostname, SSLSession session) {
+                return true;
+            }
+        };
+
+        // Install the all-trusting host verifier
+        HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
+    }
 
     public static String makeAPICall(String section, String command, Map<String, Object> params) {
         URL url = null;
@@ -75,59 +109,6 @@ public class BungeePlugin extends Plugin implements Listener {
 
     }
 
-    public static void spinDownServer(String uuid) {
-        Map<String, Object> param = new LinkedHashMap<>();
-
-        logger.info(uuid);
-
-        param.put("key", Config.key);
-        param.put("secret", Config.secret);
-
-        JSONObject spindownObj = new JSONObject();
-
-        spindownObj.put("uuid", uuid);
-
-        param.put("data", spindownObj.toString());
-
-        logger.info(makeAPICall("billing", "spindownMinigame", param));
-    }
-
-    private void SSLWorkaround() {
-        // Create a trust manager that does not validate certificate chains
-        TrustManager[] trustAllCerts = new TrustManager[]{new X509TrustManager() {
-            public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-                return null;
-            }
-
-            public void checkClientTrusted(X509Certificate[] certs, String authType) {
-            }
-
-            public void checkServerTrusted(X509Certificate[] certs, String authType) {
-            }
-        }
-        };
-
-        // Install the all-trusting trust manager
-        SSLContext sc = null;
-        try {
-            sc = SSLContext.getInstance("SSL");
-            sc.init(null, trustAllCerts, new java.security.SecureRandom());
-            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
-        } catch (NoSuchAlgorithmException e) {
-        } catch (KeyManagementException e) {
-        }
-
-        // Create all-trusting host name verifier
-        HostnameVerifier allHostsValid = new HostnameVerifier() {
-            public boolean verify(String hostname, SSLSession session) {
-                return true;
-            }
-        };
-
-        // Install the all-trusting host verifier
-        HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
-    }
-
     @Override
     public void onEnable() {
         logger = getLogger();
@@ -138,19 +119,31 @@ public class BungeePlugin extends Plugin implements Listener {
 
         this.getProxy().getPluginManager().registerListener(this, this);
 
-        this.getProxy().getScheduler().schedule(this, (Runnable) new WatchDog(), 0, 2, TimeUnit.MINUTES);
+        this.getProxy().getScheduler().schedule(this, (Runnable) new WatchDog(), 0, Config.timeout, TimeUnit.SECONDS);
     }
 
     @Override
     public void onDisable() {
-        for (ServerInfo info : runningServers.values()) {
-            killServer(info);
+        for (ProvisionedServer info : servers.values()) {
+            killServer(info, false);
+        }
+        servers.clear();
+    }
+
+    private void killServer(ProvisionedServer info, boolean remove) {
+        info.spinDown();
+        if (remove)
+        {
+            servers.remove(info);
         }
     }
 
-    private void killServer(ServerInfo info) {
-        spinDownServer(info.getName());
-        ProxyServer.getInstance().getServers().remove(info.getName()); // IT'S DEAD JIM
+    public static String getPrefix(String bungeeName)
+    {
+        for (String prefix : Config.servers.keySet())
+            if (bungeeName.startsWith(prefix))
+                return prefix;
+        return null;
     }
 
     @EventHandler
@@ -163,37 +156,48 @@ public class BungeePlugin extends Plugin implements Listener {
                 if (subChannel.equals("Connect")) {
                     ProxiedPlayer player = (ProxiedPlayer) e.getReceiver();
                     if (player != null) {
+                        if (lockedPlayers.containsKey(player.getName()))
+                        {
+                            BaseComponent component = new TextComponent("You are already trying to connect to a minigame!");
+                            component.setColor(ChatColor.RED);
+                            player.sendMessage(component);
+                            e.setCancelled(true);
+                            return;
+                        }
                         String serverName = in.readUTF();
                         ServerInfo server = bungee.getServerInfo(serverName);
                         if (server != null) {
                             return; // lets let the existing handling logic handle it
                         }
 
-                        for (String prefix : Config.servers.keySet()) {
-                            if (serverName.startsWith(prefix)) {
-                                makeServer(serverName, prefix, player);
-                                e.setCancelled(true);
-                                return;
-                            }
-                        }
+                        serverName = getServerName(serverName, getPrefix(serverName));
 
+                        joinServer(serverName, player);
+                        e.setCancelled(true);
+                        return;
                     }
                 } else if (subChannel.equals("ConnectOther")) {
                     ProxiedPlayer player = bungee.getPlayer(in.readUTF());
                     if (player != null) {
+                        if (lockedPlayers.containsKey(player.getName()))
+                        {
+                            BaseComponent component = new TextComponent("You are already trying to connect to a minigame!");
+                            component.setColor(ChatColor.RED);
+                            player.sendMessage(component);
+                            e.setCancelled(true);
+                            return;
+                        }
                         String serverName = in.readUTF();
                         ServerInfo server = bungee.getServerInfo(serverName);
                         if (server != null) {
-                            return; // lets let the existing handling logic handle it. No need to duplicate.
+                            return; // lets let the existing handling logic handle it
                         }
 
-                        for (String prefix : Config.servers.keySet()) {
-                            if (serverName.startsWith(prefix)) {
-                                makeServer(serverName, prefix, player);
-                                e.setCancelled(true);
-                                return;
-                            }
-                        }
+                        serverName = getServerName(serverName, getPrefix(serverName));
+
+                        joinServer(serverName, player);
+                        e.setCancelled(true);
+                        return;
                     }
                 }
             } catch (IOException e1) {
@@ -201,148 +205,121 @@ public class BungeePlugin extends Plugin implements Listener {
         }
     }
 
-    @EventHandler
-    public void onChat(ChatEvent e) {
-    }
-
-    public boolean addWaitingPlayer(String server, ProxiedPlayer player) {
-
-        for (ArrayList<ProxiedPlayer> playerInList : waitingPlayers.values()) {
-            if (playerInList.contains(player)) {
-                // No users should be able to change server if they're waiting. Lets tell them.
-                TextComponent component = new TextComponent("You're already waiting to connect to a minigame!");
-                component.setColor(ChatColor.RED);
-                player.sendMessage(component);
-                return false;
-            }
-        }
-
-        if (!waitingPlayers.containsKey(server)) {
-            waitingPlayers.put(server, new ArrayList());
-        }
-
-        waitingPlayers.get(server).add(player);
-
-        return true;
-    }
-
-    public void makeServer(String serverName, String prefix, ProxiedPlayer player) {
-
+    public static String getServerName(String serverName, String prefix)
+    {
         if (serverName.equals(prefix))
         {
-            // lets find a random server to put them too.
-            for (String key : runningServers.keySet())
+            for (String name : servers.keySet())
             {
-                if (key.startsWith(serverName))
+                if (name.startsWith(prefix))
                 {
-                    serverName = key;
+                    return name;
                 }
             }
+            return prefix + randInt(0, 100);
         }
+        return serverName;
+    }
 
-        if (!addWaitingPlayer(serverName, player)) {
-            return; // already waiting D: WE NO MAKE SERVER NAOW
-        }
+    public void joinServer(String serverName, ProxiedPlayer player) {
 
         TextComponent component = new TextComponent("Please wait while we connect you to the minigame.");
         component.setColor(ChatColor.YELLOW);
         player.sendMessage(component);
 
-        ScheduledTask scheduledTask = ProxyServer.getInstance().getScheduler().runAsync((Plugin) this, (Runnable) new AriesCallTask(serverName, prefix));
+        if (!servers.containsKey(serverName))
+        {
+            ScheduledTask scheduledTask = ProxyServer.getInstance().getScheduler().runAsync((Plugin) this, (Runnable) new AriesCallTask(serverName, player));
+        }
+        else
+        {
+            servers.get(serverName).connect(player);
+        }
+
+        lockedPlayers.put(player.getName(), player);
+
+        logger.info(serverName);
+    }
+
+    public static int randInt(int min, int max) {
+
+        int randomNum = rand.nextInt((max - min) + 1) + min;
+
+        return randomNum;
     }
 
     private final class AriesCallTask implements Runnable {
 
         String serverName;
-        String prefix;
+        ProxiedPlayer player;
 
-        public AriesCallTask(String serverName, String prefix) {
-            ArrayList list = new ArrayList();
-
+        public AriesCallTask(String serverName, ProxiedPlayer player) {
             this.serverName = serverName;
-            this.prefix = prefix;
+            this.player = player;
         }
 
         @Override
         public void run() {
             logger.info("Provisioning " + serverName);
-            serverTasks.put(serverName, this);
-            Map<String, Object> params = new LinkedHashMap<>();
-            params.put("key", Config.key);
-            params.put("secret", Config.secret);
-            Map<String, Object> serverObj = Config.servers.get(prefix);
-            JSONObject obj = new JSONObject(serverObj);
-            params.put("data", obj.toString());
-            String json = makeAPICall("billing", "spinupMinigame", params);
+            ProvisionedServer server = new ProvisionedServer(serverName);
 
-            JSONObject newObj = new JSONObject(json);
+            if (player != null)
+            {
+                server.connect(player); // add player onto the list
+                lockedPlayers.put(player.getName(), player);
+            }
 
-            String success = newObj.getString("status");
+            ServerInfo info = server.provision();
 
-            if (success.equals("error")) {
-                logger.info("Provisioning failed for " + serverName + " :(");
-                logger.info(json);
+            if (info != null)
+            {
+                getProxy().getServers().put(serverName, info);
+                servers.put(serverName, server);
+
+                for (ProxiedPlayer player : server.waiting)
+                {
+                    server.connect(player);
+                    BungeePlugin.lockedPlayers.remove(player.getName());
+                }
+
                 return;
             }
 
-            String ip = newObj.getString("ip");
-            String uuid = newObj.getString("uuid");
-            int port = newObj.getInt("port");
-
-            InetSocketAddress socketAddress = new InetSocketAddress(ip, port);
-
-            ServerInfo info = ProxyServer.getInstance().constructServerInfo(uuid, socketAddress, "lolhax", false);
-            ProxyServer.getInstance().getServers().put(serverName, info);
-
-            runningServers.put(serverName, info);
-
-            ArrayList<ProxiedPlayer> players = waitingPlayers.get(serverName);
-
-            for (ProxiedPlayer player : players) {
-                player.connect(info);
+            for (ProxiedPlayer player : server.waiting)
+            {
+                BungeePlugin.lockedPlayers.remove(player.getName());
+                BaseComponent component = new TextComponent("Failed starting server, please try again.");
+                component.setColor(ChatColor.RED);
+                player.sendMessage(component);
             }
 
-            waitingPlayers.remove(serverName);
+            logger.info("Failed provisioning " + serverName);
 
-            players = waitingPlayers.get(prefix);
-
-            if (players != null)
-                for (ProxiedPlayer player : players) {
-                    player.connect(info);
-                }
-
-            waitingPlayers.remove(prefix);
-
-            serverTasks.remove(serverName);
         }
     }
 
     private final class WatchDog implements Runnable
     {
 
-        private HashMap<String, Integer> lastPlayers;
-
         @Override
         public void run() {
 
-            ArrayList<ServerInfo> serversToKill = new ArrayList();
+            ArrayList<ProvisionedServer> serversToKill = new ArrayList();
 
-            for (Map.Entry<String, ServerInfo> set : runningServers.entrySet()) {
-                ServerInfo info = set.getValue();
-                int playerCount = info.getPlayers().size();
-                if (playerCount == 0)
-                {
-                    if (lastPlayers.containsKey(set.getKey()) && lastPlayers.get(set.getKey()) == 0)
-                    {
-                        // LETS KILL THE SERVER. MUHAHAHAHA.
-                        serversToKill.add(info);
-                    }
-                }
+            for (Map.Entry<String, ProvisionedServer> set : servers.entrySet())
+            {
+                ProvisionedServer server = set.getValue();
+
+                server.update();
+
+                if (server.shouldDie())
+                    serversToKill.add(server);
             }
 
-            for (ServerInfo info : serversToKill)
+            for (ProvisionedServer server : serversToKill)
             {
-                killServer(info); // DIE SERVER DIE
+                server.spinDown();
+                servers.remove(server.bungeeName);
             }
         }
     }

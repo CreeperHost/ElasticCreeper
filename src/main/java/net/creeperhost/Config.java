@@ -20,6 +20,7 @@ public class Config {
 
     public static String key;
     public static String secret;
+    public static int timeout;
 
     public static HashMap<String, Map<String, Object>> servers = new LinkedHashMap();
 
@@ -42,6 +43,7 @@ public class Config {
             conf = ConfigurationProvider.getProvider(YamlConfiguration.class).load(file);
             key = conf.getString("key");
             secret = conf.getString("secret");
+            timeout = conf.getInt("timeout");
             List list = conf.getList("servers");
 
             for (Object obj : list) {
