@@ -137,7 +137,37 @@ public class BungeePlugin extends Plugin implements Listener {
             servers.remove(info);
         }
     }
-
+    private int currentStatus(ProvisionedServer info)
+    {
+        try {
+            Socket sock = new Socket(info.getAddress());
+ 
+            DataOutputStream out = new DataOutputStream(sock.getOutputStream());
+            DataInputStream in = new DataInputStream(sock.getInputStream());
+ 
+            out.write(0xFE);
+ 
+            int b;
+            StringBuffer str = new StringBuffer();
+            while ((b = in.read()) != -1) {
+                if (b != 0 && b > 16 && b != 255 && b != 23 && b != 24) {
+                    // Not sure what use the two characters are so I omit them
+                    str.append((char) b);
+                    System.out.println(b + ":" + ((char) b));
+                }
+            }
+ 
+            String[] data = str.toString().split("§");
+            return data;
+ 
+        } catch (UnknownHostException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
     public static String getPrefix(String bungeeName)
     {
         for (String prefix : Config.servers.keySet())
