@@ -139,6 +139,11 @@ public class ProvisionedServer {
         {
             killMe = true;
         }
+        if(timeLeft() <= 300 && !killMe)
+        {
+            //We should extend it if we have existing players mid game, not just when new people join!
+            addTime();
+        }
 
         players = newPlayers;
     }
