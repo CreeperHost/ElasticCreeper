@@ -44,11 +44,11 @@ public class ProvisionedServer {
 
         params.put("key", Config.key);
         params.put("secret", Config.secret);
-        Map<String, Object> serverObj = Config.servers.get(BungeePlugin.getPrefix(bungeeName));
+        Map<String, Object> serverObj = Config.servers.get(ElasticCreeper.getPrefix(bungeeName));
         JSONObject obj = new JSONObject(serverObj);
         params.put("data", obj.toString());
 
-        String json = BungeePlugin.makeAPICall("billing", "spinupMinigame", params);
+        String json = ElasticCreeper.makeAPICall("billing", "spinupMinigame", params);
         provisioning = false;
 
         JSONObject newObj = new JSONObject(json);
@@ -56,7 +56,7 @@ public class ProvisionedServer {
         String success = newObj.getString("status");
 
         if (success.equals("error")) {
-            BungeePlugin.logger.severe(json);
+            ElasticCreeper.logger.severe(json);
             return null;
         }
 
@@ -85,9 +85,7 @@ public class ProvisionedServer {
 
         param.put("data", spindownObj.toString());
 
-        BungeePlugin.logger.info(uuid);
-
-        BungeePlugin.logger.info(BungeePlugin.makeAPICall("billing", "spindownMinigame", param));
+        ElasticCreeper.logger.info(ElasticCreeper.makeAPICall("billing", "spindownMinigame", param));
 
         ProxyServer.getInstance().getServers().remove(bungeeName);
     }
@@ -109,7 +107,7 @@ public class ProvisionedServer {
 
         param.put("data", spindownObj.toString());
 
-        String result = BungeePlugin.makeAPICall("billing", "timerMinigame", param);
+        String result = ElasticCreeper.makeAPICall("billing", "timerMinigame", param);
 
         JSONObject newObj = new JSONObject(result);
 
@@ -129,7 +127,7 @@ public class ProvisionedServer {
 
         param.put("data", spindownObj.toString());
 
-        String result = BungeePlugin.makeAPICall("billing", "extendMinigame", param);
+        String result = ElasticCreeper.makeAPICall("billing", "extendMinigame", param);
 
         JSONObject newObj = new JSONObject(result);
 
@@ -172,10 +170,10 @@ public class ProvisionedServer {
         {
             //We should extend it if we have existing players mid game, not just when new people join!
             if (addTime()) {
-                BungeePlugin.logger.info("Extended server " + bungeeName);
+                ElasticCreeper.logger.info("Extended server " + bungeeName);
             } else
             {
-                BungeePlugin.logger.info("Failed to extend server " + bungeeName);
+                ElasticCreeper.logger.info("Failed to extend server " + bungeeName);
             }
         }
     }
@@ -184,9 +182,9 @@ public class ProvisionedServer {
     {
         if ((!provisioning && isUp()) && !shouldDie()) {
             player.connect(info);
-            BungeePlugin.lockedPlayers.remove(player.getName());
+            ElasticCreeper.lockedPlayers.remove(player.getName());
         } else {
-            BungeePlugin.lockedPlayers.put(player.getName(), player);
+            ElasticCreeper.lockedPlayers.put(player.getName(), player);
             waiting.add(player);
         }
     }

@@ -25,7 +25,7 @@ import java.util.logging.Logger;
 /**
  * Created by Aaron on 03/08/2014.
  */
-public class BungeePlugin extends Plugin implements Listener {
+public class ElasticCreeper extends Plugin implements Listener {
 
     public static HashMap<String, ProvisionedServer> servers = new LinkedHashMap();
     public static Random rand = new Random();
@@ -242,7 +242,6 @@ public class BungeePlugin extends Plugin implements Listener {
             servers.get(serverName).connect(player);
         }
 
-        logger.info(serverName);
     }
 
     public static int randInt(int min, int max) {
@@ -293,7 +292,7 @@ public class BungeePlugin extends Plugin implements Listener {
 
             for (ProxiedPlayer player : server.waiting)
             {
-                BungeePlugin.lockedPlayers.remove(player.getName());
+                ElasticCreeper.lockedPlayers.remove(player.getName());
                 BaseComponent component = new TextComponent("Failed starting server, please try again.");
                 component.setColor(ChatColor.RED);
                 player.sendMessage(component);

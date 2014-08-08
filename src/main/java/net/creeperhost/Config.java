@@ -29,12 +29,12 @@ public class Config {
         folder.mkdirs();
         File file = new File(folder, "ProvisionConfig.yml");
         if (!file.exists()) {
-            BungeePlugin.logger.info("Creating default config as no config exsits. Won't work! Edit it.");
+            ElasticCreeper.logger.info("Creating default config as no config exsits. Won't work! Edit it.");
             try {
                 Files.copy(plugin.getResourceAsStream("BungeeProvision.yml"), file.toPath());
             } catch (IOException e) {
                 e.printStackTrace();
-                BungeePlugin.logger.severe("Failed creating default config. Um. Check permissions or something? *shrugs*");
+                ElasticCreeper.logger.severe("Failed creating default config. Um. Check permissions or something? *shrugs*");
             }
             // create default config
         }
@@ -51,11 +51,11 @@ public class Config {
                 String prefix = (String) map.remove("prefix");
 
                 servers.put(prefix, map);
-                BungeePlugin.logger.info(prefix);
+                ElasticCreeper.logger.info(prefix);
 
             }
         } catch (IOException e) {
-            BungeePlugin.logger.severe("Failed loading config D:");
+            ElasticCreeper.logger.severe("Failed loading config D:");
         }
 
     }
