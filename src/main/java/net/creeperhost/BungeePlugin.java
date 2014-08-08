@@ -158,8 +158,8 @@ public class BungeePlugin extends Plugin implements Listener {
                 }
             }
  
-            String[] data = str.toString().split("§");
-            return data;
+            String[] data = str.toString().split("§");//Will break with colourised MoTD's
+            return data; // 0 is MoTD, 1 is current players, 2 is maximum players.
  
         } catch (UnknownHostException e) {
             // TODO Auto-generated catch block
