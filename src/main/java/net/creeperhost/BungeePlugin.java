@@ -14,9 +14,7 @@ import net.md_5.bungee.event.EventHandler;
 
 import javax.net.ssl.*;
 import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
+import java.net.*;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
@@ -137,43 +135,7 @@ public class BungeePlugin extends Plugin implements Listener {
             servers.remove(info);
         }
     }
-    /*****************************************************
-    I believe we'll be better placed with BungeeCord's ServerInfo.ping(Callback <ServerPing> callback) function.
-    That returns a 'Players' object with 'Current' and 'Max' integers I believe.
-    I'm just too java noob to know what to feed it.
-    *****************************************************/
-    private String[] currentStatus(ProvisionedServer info)
-    {
-        try {
-            InetSocketAddress srv = info.getAddress();
-            Socket sock = new Socket(srv.getAddress(), srv.getPort());
- 
-            DataOutputStream out = new DataOutputStream(sock.getOutputStream());
-            DataInputStream in = new DataInputStream(sock.getInputStream());
- 
-            out.write(0xFE);
- 
-            int b;
-            StringBuffer str = new StringBuffer();
-            while ((b = in.read()) != -1) {
-                if (b != 0 && b > 16 && b != 255 && b != 23 && b != 24) {
-                    // Not sure what use the two characters are so I omit them
-                    str.append((char) b);
-                    System.out.println(b + ":" + ((char) b));
-                }
-            }
- 
-            String[] data = str.toString().split("§");//Will break with colourised MoTD's
-            return data; // 0 is MoTD, 1 is current players, 2 is maximum players.
- 
-        } catch (UnknownHostException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-    }
+
     public static String getPrefix(String bungeeName)
     {
         for (String prefix : Config.servers.keySet())
@@ -200,10 +162,12 @@ public class BungeePlugin extends Plugin implements Listener {
                             e.setCancelled(true);
                             return;
                         }
+
                         String serverName = in.readUTF();
                         ServerInfo server = bungee.getServerInfo(serverName);
-                        if (server != null) {
-                            return; // lets let the existing handling logic handle it
+                        if (server != null && getPrefix(serverName) != null && !Util.isFull(server))
+                        {
+                            return;
                         }
 
                         serverName = getServerName(serverName, getPrefix(serverName));
@@ -225,8 +189,9 @@ public class BungeePlugin extends Plugin implements Listener {
                         }
                         String serverName = in.readUTF();
                         ServerInfo server = bungee.getServerInfo(serverName);
-                        if (server != null) {
-                            return; // lets let the existing handling logic handle it
+                        if (server != null && getPrefix(serverName) != null && !Util.isFull(server))
+                        {
+                            return;
                         }
 
                         serverName = getServerName(serverName, getPrefix(serverName));
@@ -245,11 +210,14 @@ public class BungeePlugin extends Plugin implements Listener {
     {
         if (serverName.equals(prefix))
         {
-            for (String name : servers.keySet())
+            for (Map.Entry<String, ProvisionedServer> entry : servers.entrySet())
             {
+                String name = entry.getKey();
+                ProvisionedServer server = entry.getValue();
                 if (name.startsWith(prefix))
                 {
-                    return name;
+                    server.refreshStatus();
+                    if (!server.isFull()) return name;
                 }
             }
             return prefix + randInt(0, 100);
@@ -263,6 +231,8 @@ public class BungeePlugin extends Plugin implements Listener {
         component.setColor(ChatColor.YELLOW);
         player.sendMessage(component);
 
+        lockedPlayers.put(player.getName(), player);
+
         if (!servers.containsKey(serverName))
         {
             ScheduledTask scheduledTask = ProxyServer.getInstance().getScheduler().runAsync((Plugin) this, (Runnable) new AriesCallTask(serverName, player));
@@ -271,8 +241,6 @@ public class BungeePlugin extends Plugin implements Listener {
         {
             servers.get(serverName).connect(player);
         }
-
-        lockedPlayers.put(player.getName(), player);
 
         logger.info(serverName);
     }
@@ -299,10 +267,12 @@ public class BungeePlugin extends Plugin implements Listener {
             logger.info("Provisioning " + serverName);
             ProvisionedServer server = new ProvisionedServer(serverName);
 
+            servers.put(serverName, server);
+
             if (player != null)
             {
                 server.connect(player); // add player onto the list
-                lockedPlayers.put(player.getName(), player);
+
             }
 
             ServerInfo info = server.provision();
@@ -310,16 +280,16 @@ public class BungeePlugin extends Plugin implements Listener {
             if (info != null)
             {
                 getProxy().getServers().put(serverName, info);
-                servers.put(serverName, server);
 
                 for (ProxiedPlayer player : server.waiting)
                 {
                     server.connect(player);
-                    BungeePlugin.lockedPlayers.remove(player.getName());
                 }
 
                 return;
             }
+
+            servers.remove(serverName);
 
             for (ProxiedPlayer player : server.waiting)
             {

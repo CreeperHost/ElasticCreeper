@@ -1,14 +1,16 @@
 package net.creeperhost;
 
-import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.ProxyServer;
-import net.md_5.bungee.api.chat.BaseComponent;
-import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.config.ServerInfo;
 import net.md_5.bungee.api.connection.ProxiedPlayer;
 import org.json.JSONObject;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -22,9 +24,13 @@ public class ProvisionedServer {
     public String bungeeName;
     public String uuid;
     public int players = -1;
-    public int playerLimit;
+
+    public InetSocketAddress socketAddress;
+    public int playerLimit = 9001;
 
     private boolean killMe = false;
+
+    private boolean provisioning = true;
 
     public ArrayList<ProxiedPlayer> waiting = new ArrayList();
 
@@ -43,6 +49,7 @@ public class ProvisionedServer {
         params.put("data", obj.toString());
 
         String json = BungeePlugin.makeAPICall("billing", "spinupMinigame", params);
+        provisioning = false;
 
         JSONObject newObj = new JSONObject(json);
 
@@ -57,7 +64,7 @@ public class ProvisionedServer {
         uuid = newObj.getString("uuid");
         int port = newObj.getInt("port");
 
-        InetSocketAddress socketAddress = new InetSocketAddress(ip, port);
+        socketAddress = new InetSocketAddress(ip, port);
 
         info = ProxyServer.getInstance().constructServerInfo(uuid, socketAddress, "lolhax", false);
         ProxyServer.getInstance().getServers().put(bungeeName, info);
@@ -81,6 +88,8 @@ public class ProvisionedServer {
         BungeePlugin.logger.info(uuid);
 
         BungeePlugin.logger.info(BungeePlugin.makeAPICall("billing", "spindownMinigame", param));
+
+        ProxyServer.getInstance().getServers().remove(bungeeName);
     }
 
     public int timeLeft()
@@ -128,41 +137,112 @@ public class ProvisionedServer {
 
     }
 
+    public void refreshStatus()
+    {
+        if (info == null) return;
+
+        Util.PingCallback callback = new Util.PingCallback(this);
+
+        info.ping(callback);
+
+        while(!callback.isDone)
+        {
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+            }
+        }
+
+    }
+
     public void update()
     {
         if (info == null)
             return;
 
-        int newPlayers = info.getPlayers().size();
+        int oldPlayers = players;
 
-        if (players == 0 && newPlayers == 0)
+        refreshStatus();
+
+        if (players == 0 && oldPlayers == 0)
         {
             killMe = true;
         }
-        if(timeLeft() <= 300 && !killMe)
+        if(timeLeft() <= 300 && !killMe && players > 0)
         {
             //We should extend it if we have existing players mid game, not just when new people join!
-            addTime();
+            if (addTime()) {
+                BungeePlugin.logger.info("Extended server " + bungeeName);
+            } else
+            {
+                BungeePlugin.logger.info("Failed to extend server " + bungeeName);
+            }
         }
-
-        players = newPlayers;
     }
 
     public void connect(ProxiedPlayer player)
     {
-        if (isUp() && !shouldDie()) {
+        if ((!provisioning && isUp()) && !shouldDie()) {
             player.connect(info);
+            BungeePlugin.lockedPlayers.remove(player.getName());
         } else {
+            BungeePlugin.lockedPlayers.put(player.getName(), player);
             waiting.add(player);
         }
     }
 
+    /*****************************************************
+     I believe we'll be better placed with BungeeCord's ServerInfo.ping(Callback <ServerPing> callback) function.
+     That returns a 'Players' object with 'Current' and 'Max' integers I believe.
+     I'm just too java noob to know what to feed it.
+     *****************************************************/
+    public String[] currentStatus()
+    {
+        try {
+            InetSocketAddress srv = socketAddress;
+            Socket sock = new Socket(srv.getAddress(), srv.getPort());
+
+            sock.setSoTimeout(30);
+
+            DataOutputStream out = new DataOutputStream(sock.getOutputStream());
+            DataInputStream in = new DataInputStream(sock.getInputStream());
+
+            out.write(0xFE);
+
+            int b;
+            StringBuffer str = new StringBuffer();
+            while ((b = in.read()) != -1) {
+                if (b != 0 && b > 16 && b != 255 && b != 23 && b != 24) {
+                    // Not sure what use the two characters are so I omit them
+                    str.append((char) b);
+                    System.out.println(b + ":" + ((char) b));
+                }
+            }
+
+            String[] data = str.toString().split("§");//Will break with colourised MoTD's
+            return data; // 0 is MoTD, 1 is current players, 2 is maximum players.
+
+        } catch (UnknownHostException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return new String[] {"lol", "0", "0"};
+
+    }
+
     public boolean isUp()
     {
-        return (info != null);
+        return (provisioning || info != null);
     }
 
     public boolean shouldDie() {
         return killMe;
     }
+
+    public boolean isFull() { return players == playerLimit; }
+
+
 }
