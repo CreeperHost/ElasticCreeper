@@ -43,7 +43,7 @@ public class Config {
             conf = ConfigurationProvider.getProvider(YamlConfiguration.class).load(file);
             key = conf.getString("key");
             secret = conf.getString("secret");
-            timeout = conf.getInt("timeout");
+            timeout = (conf.getInt("timeout") < 30) ? 30 : conf.getInt("timeout");
             List list = conf.getList("servers");
 
             for (Object obj : list) {
