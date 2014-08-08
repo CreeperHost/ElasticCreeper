@@ -140,7 +140,8 @@ public class BungeePlugin extends Plugin implements Listener {
     private int currentStatus(ProvisionedServer info)
     {
         try {
-            Socket sock = new Socket(info.getAddress());
+            InetSocketAddress srv = info.getAddress();
+            Socket sock = new Socket(srv.getAddress(), srv.getPort());
  
             DataOutputStream out = new DataOutputStream(sock.getOutputStream());
             DataInputStream in = new DataInputStream(sock.getInputStream());
