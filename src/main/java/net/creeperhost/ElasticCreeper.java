@@ -156,7 +156,7 @@ public class ElasticCreeper extends Plugin implements Listener {
                     if (player != null) {
                         if (lockedPlayers.containsKey(player.getName()))
                         {
-                            BaseComponent component = new TextComponent("You are already trying to connect to a minigame!");
+                            BaseComponent component = new TextComponent("You are already trying to connect to a server!");
                             component.setColor(ChatColor.RED);
                             player.sendMessage(component);
                             e.setCancelled(true);
@@ -181,7 +181,7 @@ public class ElasticCreeper extends Plugin implements Listener {
                     if (player != null) {
                         if (lockedPlayers.containsKey(player.getName()))
                         {
-                            BaseComponent component = new TextComponent("You are already trying to connect to a minigame!");
+                            BaseComponent component = new TextComponent("You are already trying to connect to a server!");
                             component.setColor(ChatColor.RED);
                             player.sendMessage(component);
                             e.setCancelled(true);
@@ -227,7 +227,7 @@ public class ElasticCreeper extends Plugin implements Listener {
 
     public void joinServer(String serverName, ProxiedPlayer player) {
 
-        TextComponent component = new TextComponent("Please wait while we connect you to the minigame.");
+        TextComponent component = new TextComponent("Please wait while we connect you to the server.");
         component.setColor(ChatColor.YELLOW);
         player.sendMessage(component);
 
