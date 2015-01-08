@@ -1,6 +1,7 @@
 key:     yourkey@aries.creeperhost.net # Control panel, Settings -> API Access
 secret:  LOLzThisIsSecretLolz111
 timeout: 120
+sslHack: false
 servers:
      - prefix: PB_ # Prefix - will automatically provision a server if it begins - e.g. PB_2
        game:   custom # Custom - means the custom field will be a zip it wgets

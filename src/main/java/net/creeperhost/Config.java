@@ -21,6 +21,7 @@ public class Config {
     public static String key;
     public static String secret;
     public static int timeout;
+    public static boolean sslHack;
 
     public static HashMap<String, Map<String, Object>> servers = new LinkedHashMap();
 
@@ -44,6 +45,7 @@ public class Config {
             key = conf.getString("key");
             secret = conf.getString("secret");
             timeout = Math.max(conf.getInt("timeout"), 30);
+            sslHack = conf.getBoolean("sslHack");
             List list = conf.getList("servers");
 
             for (Object obj : list) {

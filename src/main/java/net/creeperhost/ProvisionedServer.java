@@ -190,9 +190,7 @@ public class ProvisionedServer {
     }
 
     /*****************************************************
-     I believe we'll be better placed with BungeeCord's ServerInfo.ping(Callback <ServerPing> callback) function.
-     That returns a 'Players' object with 'Current' and 'Max' integers I believe.
-     I'm just too java noob to know what to feed it.
+    Fallback as we use Bungee.
      *****************************************************/
     public String[] currentStatus()
     {

@@ -6,8 +6,4 @@ servers:
        game:   custom # Custom - means the custom field will be a zip it wgets
        ram:    1 # Amount of ram in GB
        time:   1 # Amount of time in hours
-       custom: http://www.creeperrepo.net/minigame.zip # Custom stuffs
-     - prefix: WALL_
-       game:   walls # Example walls gamemode
-       ram:    1
-       time:   1
+       custom: http://www.creeperrepo.net/mg-templates/paintball.zip # Custom stuffs

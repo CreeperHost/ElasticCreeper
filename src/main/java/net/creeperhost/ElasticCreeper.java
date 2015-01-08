@@ -113,7 +113,7 @@ public class ElasticCreeper extends Plugin implements Listener {
 
         Config.initConfig(this);
 
-        SSLWorkaround(); // ugh
+        if (Config.sslHack) SSLWorkaround(); // ugh
 
         this.getProxy().getPluginManager().registerListener(this, this);
 
@@ -210,16 +210,38 @@ public class ElasticCreeper extends Plugin implements Listener {
     {
         if (serverName.equals(prefix))
         {
+            Map<String, ServerInfo> bungeeServ = ProxyServer.getInstance().getServers();
+            if (bungeeServ.containsKey(serverName))
+            {
+                if (!Util.isFull(bungeeServ.get(serverName)))
+                {
+                    return serverName;
+                }
+            }
+
+            for (Map.Entry<String, ServerInfo> entry : bungeeServ.entrySet())
+            {
+                String name = entry.getKey();
+                if (name.startsWith(prefix) && (!servers.containsKey(name)))
+                {
+                    if (!Util.isFull(bungeeServ.get(name)))
+                    {
+                        return name;
+                    }
+                }
+            }
+
             for (Map.Entry<String, ProvisionedServer> entry : servers.entrySet())
             {
                 String name = entry.getKey();
-                ProvisionedServer server = entry.getValue();
                 if (name.startsWith(prefix))
                 {
-                    server.refreshStatus();
-                    if (!server.isFull()) return name;
+                    ProvisionedServer serv = servers.get(name);
+                    serv.refreshStatus();
+                    if (!serv.isFull()) return name;
                 }
             }
+
             return prefix + randInt(0, 100);
         }
         return serverName;
@@ -231,17 +253,24 @@ public class ElasticCreeper extends Plugin implements Listener {
         component.setColor(ChatColor.YELLOW);
         player.sendMessage(component);
 
-        lockedPlayers.put(player.getName(), player);
+        Map <String, ServerInfo> bungeeServs = ProxyServer.getInstance().getServers();
 
         if (!servers.containsKey(serverName))
         {
-            ScheduledTask scheduledTask = ProxyServer.getInstance().getScheduler().runAsync((Plugin) this, (Runnable) new AriesCallTask(serverName, player));
+            if (bungeeServs.containsKey(serverName))
+            {
+                player.connect(bungeeServs.get(serverName));
+                return;
+            } else {
+                lockedPlayers.put(player.getName(), player);
+                ScheduledTask scheduledTask = ProxyServer.getInstance().getScheduler().runAsync((Plugin) this, (Runnable) new AriesCallTask(serverName, player));
+            }
         }
         else
         {
+            lockedPlayers.put(player.getName(), player);
             servers.get(serverName).connect(player);
         }
-
     }
 
     public static int randInt(int min, int max) {
