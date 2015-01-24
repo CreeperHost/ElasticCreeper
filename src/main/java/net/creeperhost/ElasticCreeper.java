@@ -101,6 +101,7 @@ public class ElasticCreeper extends Plugin implements Listener {
         } catch (Exception e) {
             // Catch ALL the things
             // ...but do nothing. We will return an error anyway.
+            e.printStackTrace();
         }
 
         return "{\"status\": \"error\"}";
